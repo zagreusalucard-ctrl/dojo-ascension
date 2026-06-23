@@ -34,7 +34,7 @@ Code is not syntax—it's a framework for thinking about systems. By mastering t
 
 ```bash
 # 1. Clone this repo
-git clone https://github.com/alucardzagreus-boop/dojo-ascension
+git clone solarpunkopensourcelaboratory/dojo-ascension
 cd dojo-ascension
 
 # 2. Install dependencies
@@ -292,10 +292,10 @@ Built by and for the SolarPunk community. Inspired by:
 
 ## 🔗 Links
 
-- [GitHub Repository](https://github.com/alucardzagreus-boop/dojo-ascension)
+- [GitHub Repository](https://github.com/solarpunkopensourcelaboratory/dojo-ascension)
 - [Contributing Guide](CONTRIBUTING.md)
 - [Original SolarPunk Dojo Project](https://github.com/solarpunkopensourcelaboratory/dojo-ascension)
 
 ---
 
-**Let us never stop learning from Galileo.** — SolarPunk HackNet
+**Let us never stop learning from Galileo.** — SolarPunk Opensource Laboratory
