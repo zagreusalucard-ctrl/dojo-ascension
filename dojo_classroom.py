@@ -404,7 +404,7 @@ def execute_mission(mission_data, player):
     title = mission_data["title"]
     philosophy = mission_data["philosophy"]
     economics = mission_data["economics"]
-    tech_concept = mission_data["tech_concept"]
+    tech_concept = mission_data["techconcept"]
     challenge = mission_data["challenge"]
     answer = mission_data["answer"]
     skill = mission_data["skill"]
