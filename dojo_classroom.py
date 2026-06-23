@@ -8,16 +8,12 @@ Author: alucardzagreus-boop / SolarPunk HackNet
 Pedagogical Model: Connectivism, Progressive Disclosure, Deliberate Practice
 """
 
+import json
+import os
 import sys
 import time
-import os
-import json
-import platform
-import shutil
-import subprocess
-import re
-from pathlib import Path
 from datetime import datetime, timedelta
+from pathlib import Path
 
 try:
     from colorama import init, Fore, Style, Back
@@ -25,6 +21,7 @@ try:
     HAS_COLOR = True
 except ImportError:
     HAS_COLOR = False
+
     class _Dummy:
         def __getattr__(self, name): return ""
     Fore = Style = Back = _Dummy()
@@ -32,8 +29,36 @@ except ImportError:
 # ─────────────────────────────────────────────
 #  CONFIGURATION & PATHS
 # ─────────────────────────────────────────────
-SAVE_FILE = Path.home() / ".dojo_save.json"
-JOURNAL_FILE = Path.home() / "uta_journal_data.json"
+
+
+def get_state_paths():
+    """Resolve save and journal paths, allowing per-user overrides on shared machines."""
+    data_dir = Path(
+        os.environ.get(
+            "DOJO_DATA_DIR", str(
+                Path.home() / ".dojo_ascension"))).expanduser()
+    data_dir.mkdir(parents=True, exist_ok=True)
+
+    save_file = Path(
+        os.environ.get(
+            "DOJO_SAVE_FILE", str(
+                data_dir / "dojo_save.json"))).expanduser()
+    journal_file = Path(
+        os.environ.get(
+            "DOJO_JOURNAL_FILE", str(
+                data_dir / "dojo_journal_data.json"))).expanduser()
+
+    if not save_file.is_absolute():
+        save_file = data_dir / save_file
+    if not journal_file.is_absolute():
+        journal_file = data_dir / journal_file
+
+    save_file.parent.mkdir(parents=True, exist_ok=True)
+    journal_file.parent.mkdir(parents=True, exist_ok=True)
+    return save_file, journal_file
+
+
+SAVE_FILE, JOURNAL_FILE = get_state_paths()
 MISSIONS_FILE = Path(__file__).parent / "missions.json"
 
 UTA_HAGEN_QUESTIONS = [
@@ -51,8 +76,11 @@ UTA_HAGEN_QUESTIONS = [
 # ─────────────────────────────────────────────
 #  UI & FORMATTING
 # ─────────────────────────────────────────────
+
+
 def clear_screen():
     os.system('cls' if os.name == 'nt' else 'clear')
+
 
 def print_slow(text, speed=0.015):
     for char in text:
@@ -61,13 +89,16 @@ def print_slow(text, speed=0.015):
         time.sleep(speed)
     print()
 
+
 def divider(char="─", width=60, color=Fore.CYAN):
     print(f"{color}{char * width}{Style.RESET_ALL}")
+
 
 def header(title, color=Fore.CYAN):
     divider("═", 60, color)
     print(f"{color}{Style.BRIGHT}  {title}{Style.RESET_ALL}")
     divider("═", 60, color)
+
 
 def lesson_box(text):
     lines = text.strip().split("\n")
@@ -76,6 +107,7 @@ def lesson_box(text):
         print(f"  {Fore.CYAN}{line}{Style.RESET_ALL}")
     print()
 
+
 def challenge_box(text):
     lines = text.strip().split("\n")
     print(f"\n{Back.GREEN}{Fore.BLACK}{'  CHALLENGE  ':^60}{Style.RESET_ALL}")
@@ -83,8 +115,10 @@ def challenge_box(text):
         print(f"  {Fore.GREEN}{line}{Style.RESET_ALL}")
     print()
 
+
 def hint_box(text):
     print(f"\n  {Fore.YELLOW}💡 HINT: {text}{Style.RESET_ALL}\n")
+
 
 def wait():
     input(f"\n{Fore.WHITE}[ Press ENTER to continue... ]{Style.RESET_ALL}")
@@ -92,23 +126,27 @@ def wait():
 # ─────────────────────────────────────────────
 #  MISSION LOADING
 # ─────────────────────────────────────────────
+
+
 def load_missions():
     """Load missions from missions.json"""
     if not MISSIONS_FILE.exists():
         print(f"{Fore.RED}Error: {MISSIONS_FILE} not found!{Style.RESET_ALL}")
         sys.exit(1)
-    
+
     try:
-        with open(MISSIONS_FILE, 'r') as f:
+        with open(MISSIONS_FILE, 'r', encoding='utf-8') as f:
             data = json.load(f)
         return data.get('missions', [])
-    except Exception as e:
+    except (OSError, json.JSONDecodeError) as e:
         print(f"{Fore.RED}Error loading missions: {e}{Style.RESET_ALL}")
         sys.exit(1)
 
 # ─────────────────────────────────────────────
 #  PLAYER CLASS
 # ─────────────────────────────────────────────
+
+
 class Player:
     RANK_THRESHOLDS = [
         (0, "Initiate"),
@@ -141,12 +179,16 @@ class Player:
 
     def add_honor(self, points, skill=None):
         self.honor += points
-        print(f"\n{Fore.YELLOW}⚡ +{points} HONOR POINTS | Total: {self.honor}{Style.RESET_ALL}")
-        
+        print(
+            f"\n{Fore.YELLOW}⚡ +{points} HONOR POINTS | Total: {self.honor}{Style.RESET_ALL}")
+
         if skill and skill in self.skills:
             self.skills[skill] += 1
-            print(f"{Fore.CYAN}↑ {skill.upper()} now Level {self.skills[skill]}{Style.RESET_ALL}")
-        
+            print(
+                f"{Fore.CYAN}↑ {skill.upper()} now Level "
+                f"{self.skills[skill]}{Style.RESET_ALL}"
+            )
+
         self.save_state()
 
     def save_state(self):
@@ -159,40 +201,46 @@ class Player:
             "last_save": datetime.now().isoformat()
         }
         try:
-            with open(SAVE_FILE, 'w') as f:
+            SAVE_FILE.parent.mkdir(parents=True, exist_ok=True)
+            with open(SAVE_FILE, 'w', encoding='utf-8') as f:
                 json.dump(state, f, indent=2)
             print(f"{Fore.GREEN}✓ Progress saved to {SAVE_FILE}{Style.RESET_ALL}")
-        except Exception as e:
+        except OSError as e:
             print(f"{Fore.RED}Error saving progress: {e}{Style.RESET_ALL}")
 
     def load_state(self):
         """Load player progress from JSON"""
         if SAVE_FILE.exists():
             try:
-                with open(SAVE_FILE, 'r') as f:
+                with open(SAVE_FILE, 'r', encoding='utf-8') as f:
                     state = json.load(f)
                 self.name = state.get("name", self.name)
                 self.honor = state.get("honor", 0)
                 self.completed = set(state.get("completed", []))
                 self.skills = state.get("skills", self.skills)
-            except Exception:
+            except (OSError, json.JSONDecodeError):
                 pass  # Default to new player if corrupted
 
 # ─────────────────────────────────────────────
 #  UTA HAGEN JOURNAL SYSTEM
 # ─────────────────────────────────────────────
+
+
 def load_journal_data():
     """Load journal entries from JSON"""
     if JOURNAL_FILE.exists():
         try:
-            return json.loads(JOURNAL_FILE.read_text())
-        except json.JSONDecodeError:
+            return json.loads(JOURNAL_FILE.read_text(encoding='utf-8'))
+        except (OSError, json.JSONDecodeError):
             return {}
     return {}
 
+
 def save_journal_data(data):
     """Persist journal to JSON"""
-    JOURNAL_FILE.write_text(json.dumps(data, indent=2))
+    JOURNAL_FILE.parent.mkdir(parents=True, exist_ok=True)
+    JOURNAL_FILE.write_text(json.dumps(data, indent=2), encoding='utf-8')
+
 
 def get_practice_chain(data):
     """Calculate consecutive practice days (replaces 'streak')"""
@@ -203,23 +251,27 @@ def get_practice_chain(data):
         current -= timedelta(days=1)
     return chain
 
+
 def journal_reflection(mission_id, mission_title, player):
     """Optional post-mission reflection using Uta Hagen questions"""
-    choice = input(f"\n{Fore.CYAN}Would you like to journal about this mission? (y/n): {Style.RESET_ALL}").strip().lower()
+    choice = input(
+        f"\n{Fore.CYAN}Would you like to journal about this mission? "
+        f"(y/n): {Style.RESET_ALL}"
+    ).strip().lower()
     if choice != 'y':
         return
 
     data = load_journal_data()
     today = datetime.now().strftime("%Y-%m-%d")
-    
+
     if today in data:
         print(f"{Fore.YELLOW}You already journaled today.{Style.RESET_ALL}")
         return
 
-    print(f"\n{Fore.BLUE}{'─'*60}")
-    print(f"  UTA HAGEN SYSTEMS THINKING JOURNAL")
+    print(f"\n{Fore.BLUE}{'─' * 60}")
+    print("  UTA HAGEN SYSTEMS THINKING JOURNAL")
     print(f"  Mission: {mission_title}")
-    print(f"{'─'*60}{Style.RESET_ALL}\n")
+    print(f"{'─' * 60}{Style.RESET_ALL}\n")
 
     answers = {}
     for i, question in enumerate(UTA_HAGEN_QUESTIONS, 1):
@@ -235,27 +287,41 @@ def journal_reflection(mission_id, mission_title, player):
         "answers": answers
     }
     save_journal_data(data)
-    
-    print(f"\n{Fore.GREEN}✓ Reflection saved to {JOURNAL_FILE}{Style.RESET_ALL}")
+
+    print(
+        f"\n{Fore.GREEN}✓ Reflection saved to {JOURNAL_FILE}"
+        f"{Style.RESET_ALL}"
+    )
     print(f"{Fore.CYAN}Practice Chain: {get_practice_chain(data)} days{Style.RESET_ALL}")
+
 
 def view_journal(data):
     """Display past journal entries"""
     if not data:
-        print(f"\n{Fore.YELLOW}No journal entries yet. Start by journaling after a mission!{Style.RESET_ALL}")
+        print(
+            f"\n{Fore.YELLOW}No journal entries yet. Start by journaling "
+            f"after a mission!{Style.RESET_ALL}"
+        )
         return
 
     clear_screen()
     header("REFLECTION JOURNAL — PAST ENTRIES", Fore.BLUE)
-    
-    print(f"{Fore.CYAN}Practice Chain: {get_practice_chain(data)} consecutive days{Style.RESET_ALL}\n")
-    
+
+    print(
+        f"{Fore.CYAN}Practice Chain: {get_practice_chain(data)} "
+        f"consecutive days{Style.RESET_ALL}\n"
+    )
+
     for date in sorted(data.keys(), reverse=True)[:10]:
         entry = data[date]
-        print(f"{Fore.YELLOW}{date}{Style.RESET_ALL} — {entry.get('mission_title', 'Unknown')}")
+        print(
+            f"{Fore.YELLOW}{date}{Style.RESET_ALL} — "
+            f"{entry.get('mission_title', 'Unknown')}"
+        )
         for question, answer in entry.get("answers", {}).items():
             print(f"  {Fore.WHITE}Q: {question}{Style.RESET_ALL}")
-            print(f"  {Fore.GREEN}A: {answer[:80]}...{Style.RESET_ALL}" if len(answer) > 80 else f"  {Fore.GREEN}A: {answer}{Style.RESET_ALL}")
+            print(f"  {Fore.GREEN}A: {answer[:80]}...{Style.RESET_ALL}" if len(
+                answer) > 80 else f"  {Fore.GREEN}A: {answer}{Style.RESET_ALL}")
         print()
 
     wait()
@@ -263,13 +329,21 @@ def view_journal(data):
 # ─────────────────────────────────────────────
 #  MISSION EXECUTION
 # ─────────────────────────────────────────────
+
+
 def run_code_challenge(prompt, validator_fn, hint=""):
     """Generic code challenge runner"""
     challenge_box(prompt)
     if hint:
         hint_box(hint)
-    print(f"  {Fore.WHITE}TIP: Try this in VSCode — create a .py file and run it there!{Style.RESET_ALL}")
-    print(f"\n  {Fore.YELLOW}→ Type your answer, 'hint', or 'skip':{Style.RESET_ALL}\n")
+    print(
+        f"  {Fore.WHITE}TIP: Try this in VSCode — create a .py file and "
+        f"run it there!{Style.RESET_ALL}"
+    )
+    print(
+        f"\n  {Fore.YELLOW}→ Type your answer, 'hint', or 'skip':"
+        f"{Style.RESET_ALL}\n"
+    )
 
     attempts = 0
     while True:
@@ -292,12 +366,21 @@ def run_code_challenge(prompt, validator_fn, hint=""):
         if result is True:
             print(f"\n  {Fore.GREEN}{Style.BRIGHT}✓ CORRECT!{Style.RESET_ALL}")
             if attempts == 1:
-                print(f"  {Fore.YELLOW}Bonus: First try! +5 honor{Style.RESET_ALL}")
+                print(
+                    f"  {Fore.YELLOW}Bonus: First try! +5 honor{Style.RESET_ALL}")
             return True
         else:
-            print(f"\n  {Fore.RED}✗ Not quite. {result if isinstance(result, str) else 'Try again.'}{Style.RESET_ALL}")
+            print(
+                f"\n  {Fore.RED}✗ Not quite. "
+                f"{result if isinstance(result, str) else 'Try again.'}"
+                f"{Style.RESET_ALL}"
+            )
             if attempts >= 3:
-                print(f"  {Fore.YELLOW}Hint (after 3 tries): {hint}{Style.RESET_ALL}")
+                print(
+                    f"  {Fore.YELLOW}Hint (after 3 tries): {hint}"
+                    f"{Style.RESET_ALL}"
+                )
+
 
 def execute_mission(mission_data, player):
     """Execute a mission from the data structure"""
@@ -313,16 +396,16 @@ def execute_mission(mission_data, player):
     honor_base = mission_data.get("honor_base", 20)
 
     header(f"MISSION {num}: {title}", Fore.CYAN)
-    
+
     print(f"{Fore.BLUE}📜 PHILOSOPHICAL ANCHOR:{Style.RESET_ALL}")
     print(f"  {philosophy}\n")
-    
+
     print(f"{Fore.YELLOW}🌐 ECONOMIC PARALLEL:{Style.RESET_ALL}")
     print(f"  {economics}\n")
-    
+
     print(f"{Fore.CYAN}💻 TECHNICAL CONCEPT:{Style.RESET_ALL}")
     print(f"  {tech_concept}\n")
-    
+
     wait()
 
     def validator(user_input):
@@ -330,8 +413,11 @@ def execute_mission(mission_data, player):
             return answer(user_input.lower())
         return user_input.lower().strip() == answer.lower().strip()
 
-    won = run_code_challenge(challenge, validator, hint="Pay careful attention to the question.")
-    
+    won = run_code_challenge(
+        challenge,
+        validator,
+        hint="Pay careful attention to the question.")
+
     if won:
         player.completed.add(mid)
         player.add_honor(honor_base, skill)
@@ -339,52 +425,67 @@ def execute_mission(mission_data, player):
         journal_reflection(mid, title, player)
         return True
     else:
-        print(f"\n{Fore.YELLOW}Practice makes perfect. Return when you're ready.{Style.RESET_ALL}")
+        print(
+            f"\n{Fore.YELLOW}Practice makes perfect. Return when you're ready."
+            f"{Style.RESET_ALL}"
+        )
         return False
 
 # ─────────────────────────────────────────────
 #  DASHBOARD
 # ─────────────────────────────────────────────
+
+
 def show_dashboard(player, missions):
     """Display player progress and skill specialization"""
     clear_screen()
     header("DOJO ASCENSION — PROGRESS DASHBOARD", Fore.CYAN)
-    
-    print(f"\n{Fore.WHITE}Player    : {Style.BRIGHT}{player.name}{Style.RESET_ALL}")
+
+    print(
+        f"\n{Fore.WHITE}Player    : {Style.BRIGHT}{player.name}"
+        f"{Style.RESET_ALL}"
+    )
     print(f"{Fore.WHITE}Rank      : {Fore.YELLOW}{player.get_rank()}{Style.RESET_ALL}")
     print(f"{Fore.WHITE}Honor     : {Fore.YELLOW}{player.honor} pts{Style.RESET_ALL}")
-    
+
     divider()
     print(f"\n{Fore.CYAN}SKILL SPECIALIZATION:{Style.RESET_ALL}")
     for skill, level in sorted(player.skills.items(), key=lambda x: -x[1]):
         bar = "█" * level + "░" * (5 - level)
         print(f"  {skill.upper():<15} [{bar}] {level}/5")
-    
+
     divider()
     print(f"\n{Fore.CYAN}MISSION PROGRESS:{Style.RESET_ALL}")
     print(f"  Completed: {len(player.completed)}/{len(missions)}")
-    
+
     completed_skills = set()
     for m in missions:
         if m["id"] in player.completed:
             completed_skills.add(m["skill"])
-    
-    print(f"  Skills Mastered: {', '.join(sorted(completed_skills)) or 'None yet'}\n")
-    
+
+    print(
+        f"  Skills Mastered: {', '.join(sorted(completed_skills)) or 'None yet'}\n"
+    )
+
     # Show next rank threshold
-    next_thresholds = [t for t, _ in Player.RANK_THRESHOLDS if t > player.honor]
+    next_thresholds = [
+        t for t,
+        _ in Player.RANK_THRESHOLDS if t > player.honor]
     if next_thresholds:
         next_t = next_thresholds[0]
         bar_width = 30
         filled = int((player.honor / next_t) * bar_width)
         print(f"{Fore.YELLOW}Next Rank Progress:{Style.RESET_ALL}")
-        print(f"  [{'█' * filled}{'░' * (bar_width - filled)}] {player.honor}/{next_t} honor")
-    
+        print(
+            f"  [{'█' * filled}{'░' * (bar_width - filled)}] {player.honor}/{next_t} honor")
+
     wait()
 
 # ─────────────────────────────────────────────
 #  VSCODE GUIDE
 # ─────────────────────────────────────────────
+
+
 def show_vscode_guide():
     """Display VSCode integration instructions"""
     clear_screen()
@@ -428,11 +529,16 @@ def show_vscode_guide():
 # ─────────────────────────────────────────────
 #  MAIN MENU
 # ─────────────────────────────────────────────
+
+
 def main_menu(player, missions):
     """Main menu interface"""
     clear_screen()
     header(f"DOJO OS v5.0 | {player.name} | {player.get_rank()}", Fore.CYAN)
-    print(f"\n  {Fore.YELLOW}⚡ Honor: {player.honor}  |  Completed: {len(player.completed)}/{len(missions)}{Style.RESET_ALL}\n")
+    print(
+        f"\n  {Fore.YELLOW}⚡ Honor: {player.honor}  |  Completed: "
+        f"{len(player.completed)}/{len(missions)}{Style.RESET_ALL}\n"
+    )
     print(f"  {Fore.WHITE}1. Start Next Mission{Style.RESET_ALL}")
     print(f"  {Fore.WHITE}2. Choose Specific Mission{Style.RESET_ALL}")
     print(f"  {Fore.WHITE}3. View Progress Dashboard{Style.RESET_ALL}")
@@ -442,30 +548,47 @@ def main_menu(player, missions):
     print(f"  {Fore.WHITE}7. Exit{Style.RESET_ALL}")
     return input(f"\n  {Fore.GREEN}root@dojo:~# {Style.RESET_ALL}").strip()
 
+
 def game_loop():
     """Main game loop"""
+    global SAVE_FILE, JOURNAL_FILE
+    SAVE_FILE, JOURNAL_FILE = get_state_paths()
     missions = load_missions()
-    
+
     clear_screen()
-    print_slow(f"{Fore.CYAN}{Style.BRIGHT}  DOJO ASCENSION v5.0{Style.RESET_ALL}", 0.03)
-    print_slow(f"{Fore.WHITE}  Dynamic Mission Engine + Reflection System{Style.RESET_ALL}", 0.02)
-    print_slow(f"{Fore.YELLOW}  Python | Git | JSON | Code Review{Style.RESET_ALL}", 0.02)
+    print_slow(
+        f"{Fore.CYAN}{Style.BRIGHT}  DOJO ASCENSION v5.0{Style.RESET_ALL}", 0.03)
+    print_slow(
+        f"{Fore.WHITE}  Dynamic Mission Engine + Reflection System{Style.RESET_ALL}", 0.02)
+    print_slow(
+        f"{Fore.YELLOW}  Python | Git | JSON | Code Review{Style.RESET_ALL}", 0.02)
     print()
 
     if SAVE_FILE.exists():
-        with open(SAVE_FILE, 'r') as f:
+        with open(SAVE_FILE, 'r', encoding='utf-8') as f:
             saved = json.load(f)
-        player = Player(saved["name"], saved["honor"], saved.get("completed", []), saved.get("skills"))
-        print(f"{Fore.CYAN}✓ Save found! Welcome back, {player.get_rank()} {player.name}.{Style.RESET_ALL}")
+        player = Player(
+            saved["name"],
+            saved["honor"],
+            saved.get(
+                "completed",
+                []),
+            saved.get("skills"))
+        print(
+            f"{Fore.CYAN}✓ Save found! Welcome back, {player.get_rank()} "
+            f"{player.name}.{Style.RESET_ALL}"
+        )
     else:
-        name = input(f"\n  {Fore.GREEN}Enter your name, Initiate: {Style.RESET_ALL}").strip() or "Initiate"
+        name = input(
+            f"\n  {Fore.GREEN}Enter your name, Initiate: {Style.RESET_ALL}"
+        ).strip() or "Initiate"
         player = Player(name)
 
     wait()
 
     while True:
         choice = main_menu(player, missions)
-        
+
         if choice == '1':
             # Find next unfinished mission
             next_mission = None
@@ -473,23 +596,30 @@ def game_loop():
                 if m["id"] not in player.completed:
                     next_mission = m
                     break
-            
+
             if next_mission:
                 execute_mission(next_mission, player)
             else:
-                print(f"\n{Fore.GREEN}✓ All missions complete! You are a Co-Architect!{Style.RESET_ALL}")
+                print(
+                    f"\n{Fore.GREEN}✓ All missions complete! You are a Co-Architect!{Style.RESET_ALL}")
                 time.sleep(2)
-        
+
         elif choice == '2':
             clear_screen()
             print(f"\n{Fore.CYAN}Available Missions:{Style.RESET_ALL}\n")
             for m in missions:
                 status = "✓" if m["id"] in player.completed else " "
                 print(f"  [{status}] {m['number']}. {m['title']}")
-            
+
             try:
-                num = int(input(f"\n{Fore.GREEN}Choose mission number: {Style.RESET_ALL}"))
-                mission = next((m for m in missions if m["number"] == num), None)
+                num = int(
+                    input(
+                        f"\n{Fore.GREEN}Choose mission number: "
+                        f"{Style.RESET_ALL}"
+                    )
+                )
+                mission = next(
+                    (m for m in missions if m["number"] == num), None)
                 if mission:
                     execute_mission(mission, player)
                 else:
@@ -497,29 +627,36 @@ def game_loop():
                     time.sleep(2)
             except ValueError:
                 pass
-        
+
         elif choice == '3':
             show_dashboard(player, missions)
-        
+
         elif choice == '4':
             journal_data = load_journal_data()
             view_journal(journal_data)
-        
+
         elif choice == '5':
             show_vscode_guide()
-        
+
         elif choice == '6':
             player.save_state()
             time.sleep(1)
-        
+
         elif choice == '7':
             player.save_state()
-            print_slow(f"\n{Fore.CYAN}Disconnecting from Dojo OS... Progress saved.{Style.RESET_ALL}")
+            print_slow(
+                f"\n{Fore.CYAN}Disconnecting from Dojo OS... Progress saved."
+                f"{Style.RESET_ALL}"
+            )
             sys.exit(0)
+
 
 if __name__ == "__main__":
     try:
         game_loop()
     except KeyboardInterrupt:
-        print(f"\n{Fore.BLUE}The Dojo remains. Return when ready.{Style.RESET_ALL}")
+        print(
+            f"\n{Fore.BLUE}The Dojo remains. Return when ready."
+            f"{Style.RESET_ALL}"
+        )
         sys.exit(0)

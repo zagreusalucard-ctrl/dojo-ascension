@@ -174,7 +174,23 @@ Optional but powerful. Hints appear after 3 failed attempts. They should:
 
 1. **Edit `missions.json`** — Add your mission object to the `"missions"` array.
 
-2. **Run the Dojo:**
+### Shared Workstation Reminder
+
+If you are testing on a shared workstation, give each person their own data directory so progress files do not collide:
+
+```powershell
+$env:DOJO_DATA_DIR = "$HOME\.dojo-ascension\your-name"
+python dojo_classroom.py
+```
+
+If you use GitHub Desktop, keep each account's clone in a separate folder and sign in with the intended account before pushing.
+
+2. **Validate your missions:**
+   ```bash
+   python validate_missions.py
+   ```
+
+3. **Run the Dojo:**
    ```bash
    python dojo_classroom.py
    ```

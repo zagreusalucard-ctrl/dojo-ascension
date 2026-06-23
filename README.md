@@ -1,5 +1,7 @@
 # 🥋 DOJO ASCENSION v5.0
 
+[![Contributors](https://img.shields.io/badge/contributors-welcome-brightgreen.svg)](https://github.com/solarpunkopensourcelaboratory/dojo-ascension/graphs/contributors)
+
 **A terminal-based learning system for practicing Python, Git, JSON, and code review through story-driven missions and deliberate practice.**
 
 ---
@@ -83,6 +85,38 @@ When you run the game, you'll be prompted to enter your name. The system will:
 1. Check your environment (Python version, Git installation, disk space)
 2. Create a save file at `~/.dojo_save.json`
 3. Optionally create a journal at `~/.dojo_journal_data.json`
+
+### Contributor Quickstart
+
+If you want to help with missions or content:
+
+```bash
+python -m unittest discover -s tests
+python validate_missions.py
+```
+
+This gives you a quick sanity check before you share changes. If you add or edit missions, make sure the validator stays green and the mission index remains consistent.
+
+### Contributor Check
+
+Before sharing a new mission, run:
+
+```bash
+python validate_missions.py
+```
+
+It validates mission files and the mission index for missing required fields and basic schema issues.
+
+### Shared Workstation Tip
+
+On a shared machine, keep each participant's progress separate by setting a per-user data directory before launching the game:
+
+```powershell
+$env:DOJO_DATA_DIR = "$HOME\.dojo-ascension\alice"
+python dojo_classroom.py
+```
+
+You can also override the individual files directly with `DOJO_SAVE_FILE` and `DOJO_JOURNAL_FILE`.
 
 ---
 
