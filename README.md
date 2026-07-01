@@ -376,3 +376,6 @@ Built by and for the SolarPunk community. Inspired by:
 ---
 
 **Let us never stop learning from Galileo.** — SolarPunk Opensource Laboratory
+
+
+A presentation-ready demo save has been added so reviewers can open the repo and see the dashboard without touching anyone’s real progress. The demo file is demo/dojo_demo_save.json and contains a pre-filled player (DemoPlayer, 75 honor, one completed mission). No engine changes were made — the game loads the demo save when you point DOJO_SAVE_FILE at it. Example (Unix/macOS): export DOJO_SAVE_FILE="$(pwd)/demo/dojo_demo_save.json" && python dojo_classroom.py. Windows PowerShell: $env:DOJO_SAVE_FILE = (Resolve-Path .\demo\dojo_demo_save.json).Path; python dojo_classroom.py. To keep everything self-contained during demos, you can also set DOJO_JOURNAL_FILE or DOJO_DATA_DIR to a demo folder so no user files are modified. For presentation convenience we also proposed three small UX improvements (a one‑press "Load Demo" menu entry, a one‑click launcher script, and a read‑only dashboard preview) to make demos even smoother.
